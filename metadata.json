@@ -1,0 +1,6 @@
+{
+  "name": "Protec Seg — Gestão de Treinamentos",
+  "description": "Sistema integrado de gestão administrativa, comercial, operacional e financeira para treinamentos em Segurança e Saúde no Trabalho (SST).",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
