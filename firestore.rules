@@ -1,0 +1,80 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default deny all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Health-check / connection test document
+    match /test/{docId} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+
+    // Companies
+    match /companies/{companyId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn() && isValidId(companyId);
+      allow delete: if isSignedIn();
+    }
+
+    // Budgets
+    match /budgets/{budgetId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn() && isValidId(budgetId);
+      allow delete: if isSignedIn();
+    }
+
+    // Trainings
+    match /trainings/{trainingId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn() && isValidId(trainingId);
+      allow delete: if isSignedIn();
+    }
+
+    // Expenses
+    match /expenses/{expenseId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn() && isValidId(expenseId);
+      allow delete: if isSignedIn();
+    }
+
+    // Assets
+    match /assets/{assetId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn() && isValidId(assetId);
+      allow delete: if isSignedIn();
+    }
+
+    // Prospects
+    match /prospects/{prospectId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn() && isValidId(prospectId);
+      allow delete: if isSignedIn();
+    }
+
+    // Investments
+    match /investments/{investmentId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn() && isValidId(investmentId);
+      allow delete: if isSignedIn();
+    }
+
+    // Settings
+    match /settings/{settingId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && isValidId(settingId);
+    }
+  }
+}

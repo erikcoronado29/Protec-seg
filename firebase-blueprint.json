@@ -1,0 +1,223 @@
+{
+  "entities": {
+    "Company": {
+      "title": "Company",
+      "description": "Dados cadastrais de empresa cliente",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "cnpj": { "type": "string" },
+        "contactName": { "type": "string" },
+        "phone": { "type": "string" },
+        "whatsapp": { "type": "string" },
+        "email": { "type": "string" },
+        "address": { "type": "string" },
+        "city": { "type": "string" },
+        "state": { "type": "string" },
+        "cep": { "type": "string" },
+        "commercialRep": { "type": "string" },
+        "status": { "type": "string", "enum": ["Ativa", "Inativa", "Prospect"] },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["name", "contactName", "phone"]
+    },
+    "Budget": {
+      "title": "Budget",
+      "description": "Proposta comercial ou orçamento de treinamento",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "code": { "type": "string" },
+        "companyId": { "type": "string" },
+        "companyName": { "type": "string" },
+        "issueDate": { "type": "string" },
+        "validUntil": { "type": "string" },
+        "expectedDate": { "type": "string" },
+        "serviceName": { "type": "string" },
+        "description": { "type": "string" },
+        "participantsTotal": { "type": "number" },
+        "totalValue": { "type": "number" },
+        "paymentTerms": { "type": "string" },
+        "commercialNotes": { "type": "string" },
+        "status": { "type": "string", "enum": ["Rascunho", "Enviado", "Aprovado", "Rejeitado"] },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["code", "companyId", "totalValue", "status"]
+    },
+    "Training": {
+      "title": "Training",
+      "description": "Registro de treinamento SST executado ou agendado",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "code": { "type": "string" },
+        "companyId": { "type": "string" },
+        "companyName": { "type": "string" },
+        "title": { "type": "string" },
+        "nrNumber": { "type": "string" },
+        "date": { "type": "string" },
+        "participants": { "type": "number" },
+        "status": { "type": "string", "enum": ["Realizado", "Agendado", "Cancelado"] },
+        "revenue": { "type": "number" },
+        "distanceKm": { "type": "number" },
+        "ratePerKmSnapshot": { "type": "number" },
+        "travelCost": { "type": "number" },
+        "manHours": { "type": "number" },
+        "ratePerHourSnapshot": { "type": "number" },
+        "laborCost": { "type": "number" },
+        "otherCosts": { "type": "number" },
+        "otherCostsDescription": { "type": "string" },
+        "totalDirectCost": { "type": "number" },
+        "directResult": { "type": "number" },
+        "marginPercent": { "type": "number" },
+        "instructor": { "type": "string" },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["title", "companyId", "status", "revenue"]
+    },
+    "Expense": {
+      "title": "Expense",
+      "description": "Despesa operacional administrativa",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "description": { "type": "string" },
+        "category": { "type": "string" },
+        "date": { "type": "string" },
+        "dueDate": { "type": "string" },
+        "paymentDate": { "type": "string" },
+        "amount": { "type": "number" },
+        "frequency": { "type": "string", "enum": ["Recorrente", "Pontual"] },
+        "status": { "type": "string", "enum": ["Pago", "Pendente"] },
+        "paymentMethod": { "type": "string" },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["description", "amount", "category", "status"]
+    },
+    "Asset": {
+      "title": "Asset",
+      "description": "Item patrimonial, equipamento ou ativo",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "code": { "type": "string" },
+        "name": { "type": "string" },
+        "category": { "type": "string" },
+        "classification": { "type": "string", "enum": ["Ativo", "Passivo", "Imobilizado"] },
+        "quantity": { "type": "number" },
+        "unitValue": { "type": "number" },
+        "totalValue": { "type": "number" },
+        "acquisitionDate": { "type": "string" },
+        "location": { "type": "string" },
+        "responsible": { "type": "string" },
+        "conservationState": { "type": "string" },
+        "situation": { "type": "string" },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["code", "name", "classification", "quantity", "unitValue"]
+    },
+    "Prospect": {
+      "title": "Prospect",
+      "description": "Empresa prospectada para visita comercial",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "companyName": { "type": "string" },
+        "contactName": { "type": "string" },
+        "phoneOrWhatsapp": { "type": "string" },
+        "city": { "type": "string" },
+        "state": { "type": "string" },
+        "scheduledDate": { "type": "string" },
+        "actualDate": { "type": "string" },
+        "status": { "type": "string", "enum": ["A visitar", "Visitada — atendida", "Visitada — não atendida"] },
+        "nextAction": { "type": "string" },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["companyName", "contactName", "status"]
+    },
+    "Investment": {
+      "title": "Investment",
+      "description": "Planejamento de aquisição e compras futuras",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "itemName": { "type": "string" },
+        "description": { "type": "string" },
+        "quantity": { "type": "number" },
+        "estimatedUnitValue": { "type": "number" },
+        "estimatedTotalValue": { "type": "number" },
+        "priority": { "type": "string", "enum": ["Alta", "Média", "Baixa"] },
+        "status": { "type": "string", "enum": ["Planejado", "Em cotação", "Aprovado", "Adquirido"] },
+        "plannedDate": { "type": "string" },
+        "responsible": { "type": "string" },
+        "actualCost": { "type": "number" },
+        "actualPurchaseDate": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["itemName", "quantity", "estimatedUnitValue", "priority", "status"]
+    },
+    "Settings": {
+      "title": "Settings",
+      "description": "Configurações operacionais e tarifas do sistema",
+      "type": "object",
+      "properties": {
+        "ratePerKm": { "type": "number" },
+        "ratePerHour": { "type": "number" },
+        "shareProtecPercent": { "type": "number" },
+        "shareErikPercent": { "type": "number" },
+        "investmentReservePercent": { "type": "number" },
+        "darkMode": { "type": "boolean" },
+        "isDemoData": { "type": "boolean" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["ratePerKm", "ratePerHour", "shareProtecPercent", "shareErikPercent"]
+    }
+  },
+  "firestore": {
+    "/companies/{companyId}": {
+      "schema": { "$ref": "#/entities/Company" },
+      "description": "Coleção de empresas clientes da Protec Seg"
+    },
+    "/budgets/{budgetId}": {
+      "schema": { "$ref": "#/entities/Budget" },
+      "description": "Coleção de orçamentos e propostas comerciais"
+    },
+    "/trainings/{trainingId}": {
+      "schema": { "$ref": "#/entities/Training" },
+      "description": "Coleção de treinamentos executados e agendados"
+    },
+    "/expenses/{expenseId}": {
+      "schema": { "$ref": "#/entities/Expense" },
+      "description": "Coleção de despesas operacionais da empresa"
+    },
+    "/assets/{assetId}": {
+      "schema": { "$ref": "#/entities/Asset" },
+      "description": "Coleção de bens patrimoniais e equipamentos"
+    },
+    "/prospects/{prospectId}": {
+      "schema": { "$ref": "#/entities/Prospect" },
+      "description": "Coleção de prospecções e visitas comerciais"
+    },
+    "/investments/{investmentId}": {
+      "schema": { "$ref": "#/entities/Investment" },
+      "description": "Coleção de investimentos planejados e compras"
+    },
+    "/settings/{settingId}": {
+      "schema": { "$ref": "#/entities/Settings" },
+      "description": "Configurações gerais do sistema"
+    }
+  }
+}

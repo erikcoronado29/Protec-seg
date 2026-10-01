@@ -1,5 +1,21 @@
+import {
+  onAuthStateChanged,
+  signInWithPopup,
+  signOut,
+  User,
+} from 'firebase/auth';
+import {
+  collection,
+  deleteDoc,
+  doc,
+  onSnapshot,
+  setDoc,
+  writeBatch,
+} from 'firebase/firestore';
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { getInitialData } from '../data/initialData';
+import { auth, db, googleProvider, testFirestoreConnection } from '../firebase/config';
+import { handleFirestoreError, OperationType } from '../firebase/errorHandler';
 import {
   AppSettings,
   Asset,
@@ -32,6 +48,14 @@ interface AppContextType {
   selectedYear: number;
   selectedMonth: number;
   setSelectedPeriod: (year: number, month: number) => void;
+
+  // Firebase Auth & Cloud Sync
+  currentUser: User | null;
+  authLoading: boolean;
+  signInWithGoogle: () => Promise<void>;
+  logout: () => Promise<void>;
+  isCloudSynced: boolean;
+  pushLocalToFirestore: () => Promise<void>;
 
   // Entities
   companies: Company[];
@@ -117,12 +141,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [selectedYear, setSelectedYear] = useState<number>(currentYM.year);
   const [selectedMonth, setSelectedMonth] = useState<number>(currentYM.month);
 
+  // Auth State
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [isCloudSynced, setIsCloudSynced] = useState(false);
+
   // Modals & Navigation helpers
   const [modalNewTrainingOpen, setModalNewTrainingOpen] = useState(false);
   const [trainingPrefill, setTrainingPrefill] = useState<Partial<Training> | null>(null);
   const [selectedBudgetForPrint, setSelectedBudgetForPrint] = useState<Budget | null>(null);
 
-  // Initialize data from LocalStorage or Initial Demo
+  // Entities
   const [dataLoaded, setDataLoaded] = useState(false);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
@@ -148,7 +177,156 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
-  // Load from LocalStorage once on mount
+  // Test connection on startup
+  useEffect(() => {
+    testFirestoreConnection().then((connected) => {
+      if (connected) {
+        console.log('Firebase Firestore connection tested successfully.');
+      }
+    });
+  }, []);
+
+  // Monitor Auth State
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setCurrentUser(user);
+      setAuthLoading(false);
+      if (user) {
+        setIsCloudSynced(true);
+        addToast(`Conectado ao Firebase como ${user.email}`, 'success');
+      } else {
+        setIsCloudSynced(false);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Real-time Firestore Listeners when authenticated
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const unsubs: (() => void)[] = [];
+
+    try {
+      // 1. Companies
+      const unsubCompanies = onSnapshot(
+        collection(db, 'companies'),
+        (snapshot) => {
+          if (!snapshot.empty) {
+            const list: Company[] = [];
+            snapshot.forEach((d) => list.push(d.data() as Company));
+            setCompanies(list);
+          }
+        },
+        (error) => handleFirestoreError(error, OperationType.GET, 'companies')
+      );
+      unsubs.push(unsubCompanies);
+
+      // 2. Budgets
+      const unsubBudgets = onSnapshot(
+        collection(db, 'budgets'),
+        (snapshot) => {
+          if (!snapshot.empty) {
+            const list: Budget[] = [];
+            snapshot.forEach((d) => list.push(d.data() as Budget));
+            setBudgets(list);
+          }
+        },
+        (error) => handleFirestoreError(error, OperationType.GET, 'budgets')
+      );
+      unsubs.push(unsubBudgets);
+
+      // 3. Trainings
+      const unsubTrainings = onSnapshot(
+        collection(db, 'trainings'),
+        (snapshot) => {
+          if (!snapshot.empty) {
+            const list: Training[] = [];
+            snapshot.forEach((d) => list.push(d.data() as Training));
+            setTrainings(list);
+          }
+        },
+        (error) => handleFirestoreError(error, OperationType.GET, 'trainings')
+      );
+      unsubs.push(unsubTrainings);
+
+      // 4. Expenses
+      const unsubExpenses = onSnapshot(
+        collection(db, 'expenses'),
+        (snapshot) => {
+          if (!snapshot.empty) {
+            const list: Expense[] = [];
+            snapshot.forEach((d) => list.push(d.data() as Expense));
+            setExpenses(list);
+          }
+        },
+        (error) => handleFirestoreError(error, OperationType.GET, 'expenses')
+      );
+      unsubs.push(unsubExpenses);
+
+      // 5. Assets
+      const unsubAssets = onSnapshot(
+        collection(db, 'assets'),
+        (snapshot) => {
+          if (!snapshot.empty) {
+            const list: Asset[] = [];
+            snapshot.forEach((d) => list.push(d.data() as Asset));
+            setAssets(list);
+          }
+        },
+        (error) => handleFirestoreError(error, OperationType.GET, 'assets')
+      );
+      unsubs.push(unsubAssets);
+
+      // 6. Prospects
+      const unsubProspects = onSnapshot(
+        collection(db, 'prospects'),
+        (snapshot) => {
+          if (!snapshot.empty) {
+            const list: ProspectVisit[] = [];
+            snapshot.forEach((d) => list.push(d.data() as ProspectVisit));
+            setProspects(list);
+          }
+        },
+        (error) => handleFirestoreError(error, OperationType.GET, 'prospects')
+      );
+      unsubs.push(unsubProspects);
+
+      // 7. Investments
+      const unsubInvestments = onSnapshot(
+        collection(db, 'investments'),
+        (snapshot) => {
+          if (!snapshot.empty) {
+            const list: Investment[] = [];
+            snapshot.forEach((d) => list.push(d.data() as Investment));
+            setInvestments(list);
+          }
+        },
+        (error) => handleFirestoreError(error, OperationType.GET, 'investments')
+      );
+      unsubs.push(unsubInvestments);
+
+      // 8. Settings
+      const unsubSettings = onSnapshot(
+        doc(db, 'settings', 'config'),
+        (docSnap) => {
+          if (docSnap.exists()) {
+            setSettings(docSnap.data() as AppSettings);
+          }
+        },
+        (error) => handleFirestoreError(error, OperationType.GET, 'settings/config')
+      );
+      unsubs.push(unsubSettings);
+    } catch (err) {
+      console.warn('Real-time listener setup caught:', err);
+    }
+
+    return () => {
+      unsubs.forEach((u) => u());
+    };
+  }, [currentUser]);
+
+  // Initial load from LocalStorage for instantaneous render
   useEffect(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
@@ -168,10 +346,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       }
     } catch (err) {
-      console.error('Error reading localStorage, using initial dataset', err);
+      console.error('Error reading localStorage', err);
     }
 
-    // Default to demo dataset
     const initial = getInitialData();
     setCompanies(initial.companies);
     setBudgets(initial.budgets);
@@ -184,7 +361,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setDataLoaded(true);
   }, []);
 
-  // Save changes to LocalStorage
+  // Save changes to LocalStorage backup
   useEffect(() => {
     if (!dataLoaded) return;
     try {
@@ -239,6 +416,76 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
   }, [trainings, expenses, selectedYear, selectedMonth, settings]);
 
+  // Firebase Auth Actions
+  const signInWithGoogle = async () => {
+    try {
+      await signInWithPopup(auth, googleProvider);
+    } catch (error) {
+      console.error('Login error:', error);
+      addToast('Não foi possível autenticar com o Google.', 'error');
+    }
+  };
+
+  const logout = async () => {
+    try {
+      await signOut(auth);
+      addToast('Sessão encerrada.', 'info');
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
+
+  // Push local data to Firestore
+  const pushLocalToFirestore = async () => {
+    if (!currentUser) {
+      addToast('Faça login com o Google para gravar os dados na nuvem.', 'error');
+      return;
+    }
+
+    try {
+      addToast('Iniciando sincronização com o Firestore...', 'info');
+
+      // Batch write entities
+      const batch = writeBatch(db);
+
+      companies.forEach((c) => batch.set(doc(db, 'companies', c.id), c));
+      budgets.forEach((b) => batch.set(doc(db, 'budgets', b.id), b));
+      trainings.forEach((t) => batch.set(doc(db, 'trainings', t.id), t));
+      expenses.forEach((e) => batch.set(doc(db, 'expenses', e.id), e));
+      assets.forEach((a) => batch.set(doc(db, 'assets', a.id), a));
+      prospects.forEach((p) => batch.set(doc(db, 'prospects', p.id), p));
+      investments.forEach((i) => batch.set(doc(db, 'investments', i.id), i));
+      batch.set(doc(db, 'settings', 'config'), settings);
+
+      await batch.commit();
+      setIsCloudSynced(true);
+      addToast('Todos os registros foram gravados com sucesso no Firebase!', 'success');
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, 'batch-sync');
+    }
+  };
+
+  // Helper to persist single doc to Firestore if online
+  const syncDocToFirestore = async (collectionName: string, id: string, data: any) => {
+    if (currentUser) {
+      try {
+        await setDoc(doc(db, collectionName, id), data);
+      } catch (error) {
+        handleFirestoreError(error, OperationType.WRITE, `${collectionName}/${id}`);
+      }
+    }
+  };
+
+  const removeDocFromFirestore = async (collectionName: string, id: string) => {
+    if (currentUser) {
+      try {
+        await deleteDoc(doc(db, collectionName, id));
+      } catch (error) {
+        handleFirestoreError(error, OperationType.DELETE, `${collectionName}/${id}`);
+      }
+    }
+  };
+
   // ================= COMPANY CRUD =================
   const addCompany = (companyData: Omit<Company, 'id' | 'createdAt' | 'updatedAt'>) => {
     const id = `comp-${Date.now()}`;
@@ -250,17 +497,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       updatedAt: now,
     };
     setCompanies((prev) => [newCompany, ...prev]);
+    syncDocToFirestore('companies', id, newCompany);
     addToast(`Empresa "${newCompany.name}" cadastrada com sucesso!`, 'success');
     return { success: true, id };
   };
 
   const updateCompany = (id: string, updates: Partial<Company>) => {
+    let updatedObj: Company | undefined;
     setCompanies((prev) =>
-      prev.map((c) =>
-        c.id === id ? { ...c, ...updates, updatedAt: new Date().toISOString() } : c
-      )
+      prev.map((c) => {
+        if (c.id === id) {
+          updatedObj = { ...c, ...updates, updatedAt: new Date().toISOString() };
+          return updatedObj;
+        }
+        return c;
+      })
     );
-    // If company name was updated, update in referenced budgets & trainings
+
+    if (updatedObj) {
+      syncDocToFirestore('companies', id, updatedObj);
+    }
+
     if (updates.name) {
       setBudgets((prev) =>
         prev.map((b) => (b.companyId === id ? { ...b, companyName: updates.name! } : b))
@@ -274,24 +531,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const deleteCompany = (id: string) => {
-    // Check if referenced in budgets or trainings
     const linkedBudgets = budgets.filter((b) => b.companyId === id);
     const linkedTrainings = trainings.filter((t) => t.companyId === id);
     const linkedCount = linkedBudgets.length + linkedTrainings.length;
 
     if (linkedCount > 0) {
       addToast(
-        `Esta empresa possui ${linkedCount} registro(s) vinculado(s) (orçamentos/treinamentos). Recomenda-se inativar o cadastro.`,
+        `Esta empresa possui ${linkedCount} registro(s) vinculado(s). Recomenda-se inativar o cadastro.`,
         'error'
       );
-      return {
-        success: false,
-        reason: 'linked_records',
-        linkedCount,
-      };
+      return { success: false, reason: 'linked_records', linkedCount };
     }
 
     setCompanies((prev) => prev.filter((c) => c.id !== id));
+    removeDocFromFirestore('companies', id);
     addToast('Empresa excluída do sistema.', 'info');
     return { success: true };
   };
@@ -311,22 +564,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       updatedAt: now,
     };
     setBudgets((prev) => [newBudget, ...prev]);
+    syncDocToFirestore('budgets', id, newBudget);
     addToast(`Orçamento ${newBudget.code} gerado com sucesso!`, 'success');
     return { success: true, id };
   };
 
   const updateBudget = (id: string, updates: Partial<Budget>) => {
+    let updatedObj: Budget | undefined;
     setBudgets((prev) =>
-      prev.map((b) =>
-        b.id === id ? { ...b, ...updates, updatedAt: new Date().toISOString() } : b
-      )
+      prev.map((b) => {
+        if (b.id === id) {
+          updatedObj = { ...b, ...updates, updatedAt: new Date().toISOString() };
+          return updatedObj;
+        }
+        return b;
+      })
     );
+    if (updatedObj) {
+      syncDocToFirestore('budgets', id, updatedObj);
+    }
     addToast('Orçamento atualizado.', 'success');
     return true;
   };
 
   const deleteBudget = (id: string) => {
     setBudgets((prev) => prev.filter((b) => b.id !== id));
+    removeDocFromFirestore('budgets', id);
     addToast('Orçamento excluído.', 'info');
     return true;
   };
@@ -349,6 +612,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     setBudgets((prev) => [duplicated, ...prev]);
+    syncDocToFirestore('budgets', duplicated.id, duplicated);
     addToast(`Orçamento duplicado como ${newCode} (Rascunho).`, 'success');
     return true;
   };
@@ -400,11 +664,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     setTrainings((prev) => [newTraining, ...prev]);
+    syncDocToFirestore('trainings', id, newTraining);
     addToast(`Treinamento "${newTraining.title}" cadastrado com sucesso!`, 'success');
     return { success: true, id };
   };
 
   const updateTraining = (id: string, updates: Partial<Training>) => {
+    let updatedObj: Training | undefined;
     setTrainings((prev) =>
       prev.map((t) => {
         if (t.id !== id) return t;
@@ -422,7 +688,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           merged.revenue
         );
 
-        return {
+        updatedObj = {
           ...merged,
           travelCost: calculated.travelCost,
           laborCost: calculated.laborCost,
@@ -431,14 +697,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           marginPercent: calculated.marginPercent,
           updatedAt: new Date().toISOString(),
         };
+        return updatedObj;
       })
     );
+
+    if (updatedObj) {
+      syncDocToFirestore('trainings', id, updatedObj);
+    }
+
     addToast('Treinamento e custos recalculados com sucesso.', 'success');
     return true;
   };
 
   const deleteTraining = (id: string) => {
     setTrainings((prev) => prev.filter((t) => t.id !== id));
+    removeDocFromFirestore('trainings', id);
     addToast('Treinamento excluído.', 'info');
     return true;
   };
@@ -454,22 +727,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       updatedAt: now,
     };
     setProspects((prev) => [newProspect, ...prev]);
+    syncDocToFirestore('prospects', id, newProspect);
     addToast(`Prospecção para "${newProspect.companyName}" registrada.`, 'success');
     return { success: true, id };
   };
 
   const updateProspect = (id: string, updates: Partial<ProspectVisit>) => {
+    let updatedObj: ProspectVisit | undefined;
     setProspects((prev) =>
-      prev.map((p) =>
-        p.id === id ? { ...p, ...updates, updatedAt: new Date().toISOString() } : p
-      )
+      prev.map((p) => {
+        if (p.id === id) {
+          updatedObj = { ...p, ...updates, updatedAt: new Date().toISOString() };
+          return updatedObj;
+        }
+        return p;
+      })
     );
+    if (updatedObj) {
+      syncDocToFirestore('prospects', id, updatedObj);
+    }
     addToast('Registro de visita/prospecção atualizado.', 'success');
     return true;
   };
 
   const deleteProspect = (id: string) => {
     setProspects((prev) => prev.filter((p) => p.id !== id));
+    removeDocFromFirestore('prospects', id);
     addToast('Registro de prospecção excluído.', 'info');
     return true;
   };
@@ -485,22 +768,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       updatedAt: now,
     };
     setExpenses((prev) => [newExpense, ...prev]);
+    syncDocToFirestore('expenses', id, newExpense);
     addToast(`Despesa "${newExpense.description}" registrada.`, 'success');
     return { success: true, id };
   };
 
   const updateExpense = (id: string, updates: Partial<Expense>) => {
+    let updatedObj: Expense | undefined;
     setExpenses((prev) =>
-      prev.map((e) =>
-        e.id === id ? { ...e, ...updates, updatedAt: new Date().toISOString() } : e
-      )
+      prev.map((e) => {
+        if (e.id === id) {
+          updatedObj = { ...e, ...updates, updatedAt: new Date().toISOString() };
+          return updatedObj;
+        }
+        return e;
+      })
     );
+    if (updatedObj) {
+      syncDocToFirestore('expenses', id, updatedObj);
+    }
     addToast('Despesa atualizada.', 'success');
     return true;
   };
 
   const deleteExpense = (id: string) => {
     setExpenses((prev) => prev.filter((e) => e.id !== id));
+    removeDocFromFirestore('expenses', id);
     addToast('Despesa excluída.', 'info');
     return true;
   };
@@ -518,29 +811,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       updatedAt: now,
     };
     setAssets((prev) => [newAsset, ...prev]);
+    syncDocToFirestore('assets', id, newAsset);
     addToast(`Item patrimonial "${newAsset.name}" registrado com sucesso.`, 'success');
     return { success: true, id };
   };
 
   const updateAsset = (id: string, updates: Partial<Asset>) => {
+    let updatedObj: Asset | undefined;
     setAssets((prev) =>
       prev.map((a) => {
         if (a.id !== id) return a;
         const merged = { ...a, ...updates };
         const totalValue = Number(((merged.quantity || 1) * (merged.unitValue || 0)).toFixed(2));
-        return {
+        updatedObj = {
           ...merged,
           totalValue,
           updatedAt: new Date().toISOString(),
         };
+        return updatedObj;
       })
     );
+    if (updatedObj) {
+      syncDocToFirestore('assets', id, updatedObj);
+    }
     addToast('Item patrimonial atualizado.', 'success');
     return true;
   };
 
   const deleteAsset = (id: string) => {
     setAssets((prev) => prev.filter((a) => a.id !== id));
+    removeDocFromFirestore('assets', id);
     addToast('Item patrimonial excluído.', 'info');
     return true;
   };
@@ -562,11 +862,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       updatedAt: now,
     };
     setInvestments((prev) => [newInv, ...prev]);
+    syncDocToFirestore('investments', id, newInv);
     addToast(`Investimento planejado "${newInv.itemName}" registrado.`, 'success');
     return { success: true, id };
   };
 
   const updateInvestment = (id: string, updates: Partial<Investment>) => {
+    let updatedObj: Investment | undefined;
     setInvestments((prev) =>
       prev.map((inv) => {
         if (inv.id !== id) return inv;
@@ -574,19 +876,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const estimatedTotalValue = Number(
           ((merged.quantity || 1) * (merged.estimatedUnitValue || 0)).toFixed(2)
         );
-        return {
+        updatedObj = {
           ...merged,
           estimatedTotalValue,
           updatedAt: new Date().toISOString(),
         };
+        return updatedObj;
       })
     );
+    if (updatedObj) {
+      syncDocToFirestore('investments', id, updatedObj);
+    }
     addToast('Investimento atualizado.', 'success');
     return true;
   };
 
   const deleteInvestment = (id: string) => {
     setInvestments((prev) => prev.filter((i) => i.id !== id));
+    removeDocFromFirestore('investments', id);
     addToast('Investimento excluído.', 'info');
     return true;
   };
@@ -626,22 +933,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updatedAt: now,
       };
       setAssets((prev) => [newAsset, ...prev]);
+      syncDocToFirestore('assets', newAsset.id, newAsset);
       assetId = newAsset.id;
     }
 
     setInvestments((prev) =>
-      prev.map((i) =>
-        i.id === id
-          ? {
-              ...i,
-              status: 'Adquirido',
-              actualCost,
-              actualPurchaseDate,
-              linkedAssetId: assetId,
-              updatedAt: new Date().toISOString(),
-            }
-          : i
-      )
+      prev.map((i) => {
+        if (i.id === id) {
+          const updated = {
+            ...i,
+            status: 'Adquirido' as const,
+            actualCost,
+            actualPurchaseDate,
+            linkedAssetId: assetId,
+            updatedAt: new Date().toISOString(),
+          };
+          syncDocToFirestore('investments', id, updated);
+          return updated;
+        }
+        return i;
+      })
     );
 
     addToast(
@@ -655,7 +966,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // ================= SETTINGS & BACKUP =================
   const updateSettings = (newSettings: Partial<AppSettings>) => {
-    // Validate share sum if updating shares
     const pShare =
       newSettings.shareProtecPercent !== undefined
         ? newSettings.shareProtecPercent
@@ -670,7 +980,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return false;
     }
 
-    setSettings((prev) => ({ ...prev, ...newSettings }));
+    const merged = { ...settings, ...newSettings };
+    setSettings(merged);
+    syncDocToFirestore('settings', 'config', merged);
     addToast('Configurações salvas com sucesso.', 'success');
     return true;
   };
@@ -768,6 +1080,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         selectedYear,
         selectedMonth,
         setSelectedPeriod,
+
+        currentUser,
+        authLoading,
+        signInWithGoogle,
+        logout,
+        isCloudSynced,
+        pushLocalToFirestore,
 
         companies,
         budgets,

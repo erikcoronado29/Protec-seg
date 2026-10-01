@@ -2,10 +2,14 @@ import {
   AlertCircle,
   AlertTriangle,
   CheckCircle2,
+  Cloud,
+  CloudOff,
   Database,
   Download,
   FileJson,
   History,
+  LogIn,
+  LogOut,
   Moon,
   Percent,
   RefreshCw,
@@ -36,6 +40,11 @@ export const SettingsScreen: React.FC = () => {
     assets,
     prospects,
     investments,
+    currentUser,
+    signInWithGoogle,
+    logout,
+    pushLocalToFirestore,
+    isCloudSynced,
   } = useApp();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -53,6 +62,7 @@ export const SettingsScreen: React.FC = () => {
   const [resetModalOpen, setResetModalOpen] = useState(false);
   const [clearModalOpen, setClearModalOpen] = useState(false);
   const [importConfirmModalOpen, setImportConfirmModalOpen] = useState(false);
+  const [syncToCloudModalOpen, setSyncToCloudModalOpen] = useState(false);
   const [pendingImportContent, setPendingImportContent] = useState<string | null>(null);
 
   const handleSaveSettings = (e: React.FormEvent) => {
@@ -102,7 +112,6 @@ export const SettingsScreen: React.FC = () => {
       setImportConfirmModalOpen(true);
     };
     reader.readAsText(file);
-    // Reset file input
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -110,7 +119,7 @@ export const SettingsScreen: React.FC = () => {
 
   const executeImport = () => {
     if (!pendingImportContent) return;
-    const result = importBackup(pendingImportContent);
+    importBackup(pendingImportContent);
     setImportConfirmModalOpen(false);
     setPendingImportContent(null);
   };
@@ -120,11 +129,125 @@ export const SettingsScreen: React.FC = () => {
       {/* Title */}
       <div className="bg-white dark:bg-[#1B272F] p-5 sm:p-6 rounded-2xl border border-[#E2E9EC] dark:border-[#34434C] shadow-xs">
         <h2 className="text-xl sm:text-2xl font-extrabold text-[#20313C] dark:text-[#EDF3F5] tracking-tight">
-          Configurações e Parâmetros do Sistema
+          Configurações, Banco de Dados & Parâmetros
         </h2>
         <p className="text-xs sm:text-sm text-[#71818B] dark:text-[#A8B6BE] mt-1">
-          Defina as tarifas padrão de deslocamento, hora-homem, regras de rateio de resultados e rotinas de backup.
+          Defina as tarifas padrão, regras de rateio de resultados e gerencie a sincronização em nuvem com o Firebase.
         </p>
+      </div>
+
+      {/* Section 0: Firebase Backend Cloud Integration */}
+      <div className="bg-white dark:bg-[#1B272F] p-5 sm:p-6 rounded-2xl border border-[#16836F]/40 shadow-xs space-y-4">
+        <div className="flex items-center justify-between pb-3 border-b border-[#E2E9EC] dark:border-[#34434C]">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-[#E4F4EF] dark:bg-[#16836F]/20 text-[#16836F] flex items-center justify-center font-bold">
+              <Cloud className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-[#20313C] dark:text-[#EDF3F5]">
+                Armazenamento em Nuvem — Firebase Firestore
+              </h3>
+              <p className="text-[11px] text-[#71818B] dark:text-[#A8B6BE]">
+                Persistência centralizada em banco de dados NoSQL corporativo
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {currentUser ? (
+              <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#E4F4EF] text-[#16836F] text-xs font-bold">
+                <span className="w-2 h-2 rounded-full bg-[#16836F]" />
+                Conectado
+              </span>
+            ) : (
+              <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 text-[#D5A34C] text-xs font-bold">
+                <span className="w-2 h-2 rounded-full bg-[#D5A34C]" />
+                Modo Local (Desconectado)
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Cloud Connection Details */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+          <div className="p-3 rounded-xl bg-[#F8FAFB] dark:bg-[#202E37] border border-[#E2E9EC] dark:border-[#34434C]">
+            <div className="text-[10px] text-[#71818B]">Projeto Firebase</div>
+            <div className="font-bold text-[#20313C] dark:text-[#EDF3F5] truncate mt-0.5">
+              gen-lang-client-0122718775
+            </div>
+          </div>
+
+          <div className="p-3 rounded-xl bg-[#F8FAFB] dark:bg-[#202E37] border border-[#E2E9EC] dark:border-[#34434C]">
+            <div className="text-[10px] text-[#71818B]">Banco Firestore</div>
+            <div className="font-bold text-[#16836F] truncate mt-0.5" title="ai-studio-protecseggestode-39151714-0b10-4fee-b79a-d7a9f882f349">
+              Enterprise Ativo
+            </div>
+          </div>
+
+          <div className="p-3 rounded-xl bg-[#F8FAFB] dark:bg-[#202E37] border border-[#E2E9EC] dark:border-[#34434C]">
+            <div className="text-[10px] text-[#71818B]">Autenticação</div>
+            <div className="font-bold text-[#20313C] dark:text-[#EDF3F5] truncate mt-0.5">
+              {currentUser ? currentUser.email : 'Google OAuth'}
+            </div>
+          </div>
+        </div>
+
+        {/* Cloud Actions */}
+        <div className="flex flex-col sm:flex-row gap-3 pt-2">
+          {currentUser ? (
+            <>
+              <button
+                type="button"
+                onClick={() => setSyncToCloudModalOpen(true)}
+                className="flex-1 flex items-center justify-center gap-2 p-3 rounded-xl bg-[#16836F] hover:bg-[#126b5a] text-white text-xs font-bold transition-colors shadow-xs"
+              >
+                <RefreshCw className="w-4 h-4" />
+                <span>Gravar Base Completa no Firestore</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={logout}
+                className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-red-200 dark:border-red-900/40 text-[#B94949] hover:bg-red-50 text-xs font-bold transition-colors"
+              >
+                <LogOut className="w-4 h-4" />
+                <span>Desconectar</span>
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={signInWithGoogle}
+              className="flex-1 flex items-center justify-center gap-2 p-3 rounded-xl bg-[#153246] hover:bg-[#1c4357] text-white text-xs font-bold transition-colors shadow-xs"
+            >
+              <LogIn className="w-4 h-4 text-[#38D39F]" />
+              <span>Conectar com Conta Google para Salvar na Nuvem</span>
+            </button>
+          )}
+        </div>
+
+        {/* Vercel Integration Guide */}
+        <div className="pt-3 border-t border-[#E2E9EC] dark:border-[#34434C] space-y-2.5">
+          <div className="flex items-center justify-between">
+            <span className="font-bold text-xs text-[#20313C] dark:text-[#EDF3F5] flex items-center gap-1.5">
+              <span>▲</span> Sincronização & Deploy na Vercel
+            </span>
+            <span className="text-[10px] text-[#16836F] font-bold bg-[#E4F4EF] dark:bg-[#16836F]/20 px-2 py-0.5 rounded-md">
+              vercel.json configurado
+            </span>
+          </div>
+
+          <div className="p-3 rounded-xl bg-[#F8FAFB] dark:bg-[#202E37] text-[11px] text-[#71818B] dark:text-[#A8B6BE] space-y-2 leading-relaxed">
+            <p>
+              O projeto já possui o arquivo <code>vercel.json</code> com as rotas SPA e o script <code>npm run build</code> configurados para a Vercel.
+            </p>
+            <ol className="list-decimal list-inside space-y-1 text-[#20313C] dark:text-[#EDF3F5]">
+              <li>Conecte seu repositório Git (GitHub ou GitLab) à sua conta da <strong>Vercel</strong>.</li>
+              <li>O framework será detectado automaticamente como <strong>Vite</strong> (pasta de saída: <code>dist</code>).</li>
+              <li>No painel do <strong>Firebase Console</strong> &gt; <em>Authentication</em> &gt; <em>Settings</em> &gt; <em>Domínios Autorizados</em>, adicione o seu domínio da Vercel (ex: <code>seu-app.vercel.app</code>) para habilitar o login Google em produção.</li>
+            </ol>
+          </div>
+        </div>
       </div>
 
       <form onSubmit={handleSaveSettings} className="space-y-6">
@@ -186,7 +309,6 @@ export const SettingsScreen: React.FC = () => {
             </div>
           </div>
 
-          {/* Historical Consistency Info Box */}
           <div className="p-3.5 rounded-xl bg-[#F8FAFB] dark:bg-[#202E37] border border-[#E2E9EC] dark:border-[#34434C] flex items-start gap-3 text-xs text-[#20313C] dark:text-[#EDF3F5]">
             <History className="w-4 h-4 text-[#16836F] shrink-0 mt-0.5" />
             <div>
@@ -285,7 +407,11 @@ export const SettingsScreen: React.FC = () => {
 
           <div className="flex items-center justify-between pt-2">
             <span className="text-xs text-[#71818B]">
-              Soma das participações: <strong>{Number(formSettings.shareProtecPercent) + Number(formSettings.shareErikPercent)}%</strong> (obrigatório 100%)
+              Soma das participações:{' '}
+              <strong>
+                {Number(formSettings.shareProtecPercent) + Number(formSettings.shareErikPercent)}%
+              </strong>{' '}
+              (obrigatório 100%)
             </span>
             <button
               type="submit"
@@ -306,46 +432,24 @@ export const SettingsScreen: React.FC = () => {
           </div>
           <div>
             <h3 className="text-sm font-bold text-[#20313C] dark:text-[#EDF3F5]">
-              Backup, Restauração e Integridade dos Dados
+              Backup Local em Arquivo JSON
             </h3>
             <p className="text-[11px] text-[#71818B] dark:text-[#A8B6BE]">
-              Exporte seus dados em arquivo JSON criptograficamente íntegro ou restaure uma cópia de segurança
+              Exporte seus dados em arquivo JSON para cópia de segurança física
             </p>
           </div>
         </div>
 
-        {/* Database overview counts */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-          <div className="p-2.5 bg-[#F8FAFB] dark:bg-[#202E37] rounded-xl border border-[#E2E9EC] dark:border-[#34434C]">
-            <div className="text-[10px] text-[#71818B]">Empresas</div>
-            <div className="text-base font-bold text-[#153246] dark:text-[#EDF3F5]">{companies.length}</div>
-          </div>
-          <div className="p-2.5 bg-[#F8FAFB] dark:bg-[#202E37] rounded-xl border border-[#E2E9EC] dark:border-[#34434C]">
-            <div className="text-[10px] text-[#71818B]">Treinamentos</div>
-            <div className="text-base font-bold text-[#153246] dark:text-[#EDF3F5]">{trainings.length}</div>
-          </div>
-          <div className="p-2.5 bg-[#F8FAFB] dark:bg-[#202E37] rounded-xl border border-[#E2E9EC] dark:border-[#34434C]">
-            <div className="text-[10px] text-[#71818B]">Despesas</div>
-            <div className="text-base font-bold text-[#153246] dark:text-[#EDF3F5]">{expenses.length}</div>
-          </div>
-          <div className="p-2.5 bg-[#F8FAFB] dark:bg-[#202E37] rounded-xl border border-[#E2E9EC] dark:border-[#34434C]">
-            <div className="text-[10px] text-[#71818B]">Patrimônio</div>
-            <div className="text-base font-bold text-[#153246] dark:text-[#EDF3F5]">{assets.length}</div>
-          </div>
-        </div>
-
         <div className="flex flex-col sm:flex-row gap-3 pt-2">
-          {/* Export button */}
           <button
             type="button"
             onClick={exportBackup}
             className="flex-1 flex items-center justify-center gap-2 p-3 rounded-xl border border-[#16836F] text-[#16836F] hover:bg-[#E4F4EF] dark:hover:bg-[#16836F]/10 text-xs font-bold transition-colors"
           >
             <Download className="w-4 h-4" />
-            <span>Exportar Backup Completo (JSON)</span>
+            <span>Exportar Backup (JSON)</span>
           </button>
 
-          {/* Import button */}
           <input
             type="file"
             accept=".json"
@@ -362,14 +466,6 @@ export const SettingsScreen: React.FC = () => {
             <span>Restaurar Backup de Arquivo</span>
           </button>
         </div>
-
-        {/* Warning message about backups */}
-        <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40 text-[11px] text-[#D5A34C] flex items-center gap-2">
-          <AlertTriangle className="w-4 h-4 shrink-0" />
-          <span>
-            <strong>Recomendação de Segurança:</strong> Realize backups periódicos exportando o arquivo JSON para seu dispositivo ou armazenamento seguro em nuvem.
-          </span>
-        </div>
       </div>
 
       {/* Section 4: Demo Data Management */}
@@ -377,15 +473,12 @@ export const SettingsScreen: React.FC = () => {
         <div className="flex items-center justify-between pb-3 border-b border-[#E2E9EC] dark:border-[#34434C]">
           <div>
             <h3 className="text-sm font-bold text-[#20313C] dark:text-[#EDF3F5]">
-              Gestão da Base de Demonstração
+              Gestão da Base Demonstrativa
             </h3>
             <p className="text-[11px] text-[#71818B] dark:text-[#A8B6BE]">
               Restaurar registros didáticos iniciais ou iniciar operação com base vazia
             </p>
           </div>
-          <span className="text-[11px] font-bold text-[#71818B] px-2 py-1 bg-gray-100 dark:bg-gray-800 rounded-md">
-            Status: {settings.isDemoData ? 'Dados de Demonstração Ativos' : 'Base de Produção'}
-          </span>
         </div>
 
         <div className="flex flex-col sm:flex-row gap-3">
@@ -446,6 +539,18 @@ export const SettingsScreen: React.FC = () => {
           setImportConfirmModalOpen(false);
           setPendingImportContent(null);
         }}
+      />
+
+      <ConfirmationModal
+        isOpen={syncToCloudModalOpen}
+        title="Gravar Dados no Firebase Firestore"
+        message="Deseja sincronizar e gravar todos os dados cadastrais (empresas, orçamentos, treinamentos, despesas, bens e investimentos) diretamente no seu banco de dados Firebase na nuvem?"
+        confirmLabel="Sim, Gravar no Firestore"
+        onConfirm={() => {
+          pushLocalToFirestore();
+          setSyncToCloudModalOpen(false);
+        }}
+        onCancel={() => setSyncToCloudModalOpen(false)}
       />
     </div>
   );

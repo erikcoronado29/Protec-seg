@@ -1,12 +1,18 @@
 import {
   Calendar,
   ChevronDown,
+  Cloud,
+  CloudOff,
   GraduationCap,
   Info,
+  LogIn,
+  LogOut,
   Menu,
   Moon,
   Plus,
+  RefreshCw,
   Sun,
+  UserCheck,
 } from 'lucide-react';
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
@@ -25,9 +31,15 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
     settings,
     updateSettings,
     setModalNewTrainingOpen,
+    currentUser,
+    authLoading,
+    signInWithGoogle,
+    logout,
+    pushLocalToFirestore,
   } = useApp();
 
   const [periodDropdownOpen, setPeriodDropdownOpen] = useState(false);
+  const [userDropdownOpen, setUserDropdownOpen] = useState(false);
 
   const getScreenDetails = () => {
     switch (activeScreen) {
@@ -57,7 +69,6 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
   };
 
   const details = getScreenDetails();
-
   const years = [2025, 2026, 2027];
   const months = Array.from({ length: 12 }, (_, i) => i + 1);
 
@@ -85,8 +96,68 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
         </div>
       </div>
 
-      {/* Right zone: Period Selector, Demo notice, Theme toggle, Action button, User */}
+      {/* Right zone: Period Selector, Firebase Connection, Theme toggle, Action button, User */}
       <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+        {/* Firebase Cloud Connection Status */}
+        {currentUser ? (
+          <div className="relative">
+            <button
+              onClick={() => setUserDropdownOpen(!userDropdownOpen)}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-[#16836F]/40 bg-[#E4F4EF]/60 dark:bg-[#16836F]/20 text-[#16836F] text-xs font-semibold hover:border-[#16836F] transition-colors"
+              title="Firebase Conectado"
+            >
+              <Cloud className="w-3.5 h-3.5 text-[#16836F]" />
+              <span className="hidden lg:inline text-[11px] truncate max-w-[120px]">
+                {currentUser.displayName || currentUser.email?.split('@')[0]}
+              </span>
+              <ChevronDown className="w-3 h-3 text-[#16836F]" />
+            </button>
+
+            {userDropdownOpen && (
+              <div className="absolute right-0 mt-1 w-64 bg-white dark:bg-[#1B272F] border border-[#E2E9EC] dark:border-[#34434C] rounded-xl shadow-xl p-3 z-30 animate-in fade-in zoom-in-95 duration-100 text-xs">
+                <div className="font-bold text-[#20313C] dark:text-[#EDF3F5] pb-1 border-b border-[#E2E9EC] dark:border-[#34434C] flex items-center justify-between">
+                  <span>Firebase Conectado</span>
+                  <span className="w-2 h-2 rounded-full bg-[#16836F]" />
+                </div>
+                <div className="py-2 text-[11px] text-[#71818B] dark:text-[#A8B6BE] truncate">
+                  {currentUser.email}
+                </div>
+                <div className="space-y-1.5 pt-1">
+                  <button
+                    onClick={() => {
+                      pushLocalToFirestore();
+                      setUserDropdownOpen(false);
+                    }}
+                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-[#F8FAFB] dark:bg-[#202E37] hover:bg-[#E4F4EF] text-[#20313C] dark:text-[#EDF3F5] text-left font-medium transition-colors"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5 text-[#16836F]" />
+                    <span>Gravar Dados no Firestore</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      logout();
+                      setUserDropdownOpen(false);
+                    }}
+                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30 text-[#B94949] text-left font-medium transition-colors"
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                    <span>Desconectar Conta</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <button
+            onClick={signInWithGoogle}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-[#E2E9EC] dark:border-[#34434C] bg-[#F8FAFB] dark:bg-[#202E37] text-xs font-semibold text-[#20313C] dark:text-[#EDF3F5] hover:border-[#16836F] transition-colors"
+            title="Conectar com o Google para salvar no Firebase"
+          >
+            <CloudOff className="w-3.5 h-3.5 text-[#D5A34C]" />
+            <span className="hidden md:inline">Salvar no Firebase</span>
+          </button>
+        )}
+
         {/* Period Selector Dropdown */}
         <div className="relative">
           <button
@@ -162,10 +233,10 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
         </div>
 
         {/* Demo indicator tag */}
-        {settings.isDemoData && (
+        {settings.isDemoData && !currentUser && (
           <div
             className="hidden xl:flex items-center gap-1.5 text-[11px] font-medium text-[#71818B] dark:text-[#A8B6BE] bg-[#F8FAFB] dark:bg-[#202E37] px-2 py-1 rounded-md border border-[#E2E9EC] dark:border-[#34434C]"
-            title="Valores demonstrativos de exemplo. Podem ser editados ou limpos em Configurações."
+            title="Valores demonstrativos de exemplo. Podem ser gravados no Firebase ao conectar."
           >
             <Info className="w-3.5 h-3.5 text-[#D5A34C]" />
             <span>Dados demonstrativos</span>
@@ -195,9 +266,9 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
         {/* User initials */}
         <div
           className="w-8 h-8 rounded-full bg-[#153246] text-[#E4F4EF] font-bold text-xs flex items-center justify-center border border-[#1C4357] shrink-0"
-          title="Erik Coronado — Responsável"
+          title={currentUser ? `Conectado como ${currentUser.email}` : 'Erik Coronado — Responsável'}
         >
-          EC
+          {currentUser?.displayName ? currentUser.displayName.slice(0, 2).toUpperCase() : 'EC'}
         </div>
       </div>
     </header>
